@@ -1,13 +1,9 @@
 network:
   version: 2
   renderer: networkd
+  
   bridges:
   
     weeb:
       addresses:
         - 10.67.67.1/24
-      routes:
-        - to: default
-          via: 10.67.67.254
-      nameservers:
-        addresses: [8.8.8.8, 1.1.1.1]

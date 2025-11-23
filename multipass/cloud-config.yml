@@ -14,22 +14,15 @@ packages:
   - containerd.io
 
 write_files:
+  # Docker installation script (gpg import fails in apt modules sometimes???)
   - path: /home/ubuntu/dockerup.sh
     content: |
       ##include files/dockerup.sh
 
+  # Netplan static IP configuration
   - path: /etc/netplan/60-fucking-static-ip.yaml
     content: |
-      network:
-        version: 2
-        ethernets:
-          ens4:
-            dhcp4: false
-            addresses:
-              - 10.67.67.67/24
-            
-            nameservers:
-              addresses: [8.8.8.8, 1.1.1.1]
+      ##include files/static-ip.yaml
 
   # Traefik docker-compose file
   - path: /home/ubuntu/traefik/docker-compose.yml
@@ -41,17 +34,17 @@ write_files:
     content: |
       ##include files/docker-compose.weebify.yml
   
-  # Weebify .env
+  # Stack configuration .env
   - path: /home/ubuntu/weebify/.env
     content: |
-      ##include files/.env.weebify
+      ##include files/.env
 
-  # Weebify minioinit
+  # MinIO init script
   - path: /home/ubuntu/weebify/minioinit.sh
     content: |
       ##include files/minioinit.sh
 
-  # Weebify mongoinit
+  # MongoDB init script
   - path: /home/ubuntu/weebify/mongoinit.js
     content: |
       ##include files/mongoinit.js
@@ -65,13 +58,15 @@ system_info:
   default_user:
     groups: [docker]
 
-# Enable and start docker service
 runcmd:
+  # Set static IP
   - netplan apply
+  # Install docker
   - bash /home/ubuntu/dockerup.sh
+  # Start traefik and weebify
   - docker compose -f /home/ubuntu/traefik/docker-compose.yml --progress quiet up -d
   - docker compose --env-file /home/ubuntu/weebify/.env -f /home/ubuntu/weebify/docker-compose.yml --progress quiet up -d
+  # Restart to make sure everything is initialized properly
   - sleep 10
   - docker compose --env-file /home/ubuntu/weebify/.env -f /home/ubuntu/weebify/docker-compose.yml --progress quiet restart #lol
-  - touch /home/ubuntu/IFUCKINGHATEVIRTUALMACHINES
   

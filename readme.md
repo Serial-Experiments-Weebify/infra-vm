@@ -1,49 +1,104 @@
 # Weebify infra (virtualization)
-[Main repo](https://github.com/Serial-Experiments-Weebify/weebify/tree/devops) | 
+
+[App repo](https://github.com/Serial-Experiments-Weebify/weebify/tree/devops) | 
 [Encodeher repo](https://github.com/Serial-Experiments-Weebify/encodeher) 
 
-## Multipass
+## Intoduction
 
-Quite a struggle to get working mostly due to:
+This repo contains IaC for deploying weebify in two different local VM setups.
+It requires a Host running Ubuntu (ideally 24.04).
 
-- networking 
-- apt module stopped importing keys from keyserver???
+## Setup
 
-Also quite a hack since we use a bash script to preprocess (`##include <file>`) the `cloud-config.yml`.
+Before we get depoying we need to set up our host.
+
+Install dependencies...
+
+```bash
+sudo apt install -y snapd git make caddy gcc qemu-kvm ebtables virtiofsd libvirt-dev libvirt-clients libvirt-daemon-system ruby-fog-libvirt libguestfs-tools libxslt-dev libxml2-dev zlib1g-dev ruby-dev
+sudo systemctl enable --now snapd
+sudo snap install multipass
+```
+
+Clone this repo...
+
+```bash
+git clone https://github.com/Serial-Experiments-Weebify/infra-vm.git
+cd infra-vm
+```
+
+Add yourself to the `libvirt` group...
+
+```bash
+sudo usrmod -aG libvirt $USER
+```
+
+Install Vagrant...
+
+```bash
+wget -O - https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(grep -oP '(?<=UBUNTU_CODENAME=).*' /etc/os-release || lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt update && sudo apt install vagrant
+```
+
+Install the libvirt plugin for Vagrant...
+
+```bash
+vagrant plugin install vagrant-libvirt
+```
+
+Now decide on domains you want to use for the deployment I suggest you pick something like:
+
+```plain
+multipass.<domain>
+s3.multipass.<domain>
+vagrant.<domain>
+s3.vagrant.<domain>
+```
+
+Make sure all point to the host's public IP.
+Then copy the `Caddyfile` to `/etc/caddy/Caddyfile` and fix the domain names.
+
+Start caddy with
+
+```bash
+sudo systemctl enable --now caddy
+```
+
+## Multipass / Cloud-init
+
+For cloud-init we use `multipass` because it is the most trivial to set up.
+
+We use a bash script to add includes (`##include <file>`) to `cloud-config.yml`.
 
 ### Deploy
 
-1. Make sure you have `multipass`, `caddy` and `make` installed.
+1. Apply the weebnet.yaml with `netplan` (copy to `/etc/netplan/` first).
+   This sets up a bridge network interface for multipass to use.
 
-2. Apply the weebnet.yaml with `netplan` (copy to `/etc/netplan/` first).
+2. Copy `.env.example` file in `./multipass/files/` to `.env` and modify it. For domain use the full domain name without the `s3.` prefix (e.g. multipass.weebify.tv).
 
-3. Copy `Caddyfile` to `/etc/caddy/Caddyfile` (modify domains if needed) and start Caddy (`systemctl enable --now caddy`).
+3. From `./multipass/` run `make up`.
 
-4. Copy & modify the .env file in `./multipass/files/` as needed.
+4. Run `make shell` and verify all 7 containers are running with `docker ps`.
 
-5. Run `make up` from `./multipass/`.
-
-6. profit???
+5. Proceed to test scenario below.
 
 ## Vagrant
 
-Nothing special, just mounts the compose stacks installs docker and runs them.
+We use libvirt so it can live alogside multipass.
 
 ### Deploy
 
-1. Make sure you have `vagrant`, libvirt dependencies and `caddy` installed.
+1. Copy `.env.example` file in `./vagrant/weebify/` to `.env` and modify it. For domain use the full domain name without the `s3.` prefix (e.g. vagrant.weebify.tv).
 
-2. `vagrant plugin install vagrant-libvirt` and add youself to the `libvirt` group.
+2. Run `vagrant up` from `./vagrant/`.
 
-3. Copy `Caddyfile` to `/etc/caddy/Caddyfile` (modify domains if needed) and start Caddy (`systemctl enable --now caddy`).
+3. Run `vagrant ssh weebify` and verify all 7 containers are running with `docker ps`.
 
-4. Copy & modify the .env file in `./vagrant/weebify/` as needed.
+4. Proceed to test scenario below.
 
-5. Run `vagrant up` from `./vagrant/`.
-
-6. profit???
-
-## Test scenario:
+## Test scenario
 
 - Open configured domain in browser
 - Login with configured admin user
@@ -56,11 +111,10 @@ Nothing special, just mounts the compose stacks installs docker and runs them.
 
 ## Docker stack
 
-Both setups just spin up two docker stacks. One for Traefik (could be skipped) and one for Weebify.
-
-For some reason a manual restart is needed in vagrant/multipass.
+Both setups just spin up two docker stacks. One for Traefik and one for Weebify.
 
 ### `mongo`
+
 The MongoDB instance for weebify. Has a relatively simple init script to create the admin user.
 
 ### `meili`
@@ -69,7 +123,7 @@ Meilisearch (search engine/db) for weebify. Exposed on `/api/search`.
 
 ### `minio`
 
-S3 compatible object storage. Should probably used garage/seaweedfs instead. Exposed on `s3.` subdomain. 
+S3 compatible object storage. Should probably used garage/seaweedfs instead. Exposed on `s3.` subdomain.
 
 ### `minioinit`
 
