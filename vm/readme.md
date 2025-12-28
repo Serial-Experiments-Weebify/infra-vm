@@ -1,11 +1,8 @@
 # Weebify infra (virtualization)
 
-[App repo](https://github.com/Serial-Experiments-Weebify/weebify/tree/devops) | 
-[Encodeher repo](https://github.com/Serial-Experiments-Weebify/encodeher) 
-
 ## Intoduction
 
-This repo contains IaC for deploying weebify in two different local VM setups.
+Files for deploying weebify in two different local VM setups.
 It requires a Host running Ubuntu (ideally 24.04).
 
 ## Setup
@@ -23,8 +20,8 @@ sudo snap install multipass
 Clone this repo...
 
 ```bash
-git clone https://github.com/Serial-Experiments-Weebify/infra-vm.git
-cd infra-vm
+git clone https://github.com/Serial-Experiments-Weebify/infra.git
+cd infra/vm
 ```
 
 Add yourself to the `libvirt` group...
