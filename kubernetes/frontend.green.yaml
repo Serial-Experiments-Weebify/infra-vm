@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name:  weebify-fe-green
+  namespace: weebify
+  labels:
+    app:  weebify
+    name:  weebify-fe
+    color: green
+
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      name: weebify-fe
+      app: weebify
+      color: green
+
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+
+  template:
+    metadata:
+      labels:
+        name:  weebify-fe
+        app:  weebify
+        color: green
+
+    spec:
+      containers:
+      - name:  weebify-fe
+        image: ghcr.io/serial-experiments-weebify/weebify-frontend:devops-4181d03
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "64M"
+          limits:
+            cpu: "1"
+            memory: "512M"
+
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          timeoutSeconds: 2
+
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          timeoutSeconds: 2
+
+        ports:
+        - containerPort: 80
+          protocol: TCP
+          name:  http
+
+        imagePullPolicy: IfNotPresent
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 15

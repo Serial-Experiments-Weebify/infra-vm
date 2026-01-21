@@ -1,0 +1,59 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: weebify
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/serial-experiments-weebify/weebify-backend:devops-75b89ce
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DATABASE
+              value: "mongodb://admin:admin@mongo:27017/weebify?authMechanism=DEFAULT&authSource=admin"
+            - name: SEARCH_HOST
+              value: "http://meilisearch:7700/"
+            - name: S3_PUBLIC_URL
+              value: "https://s3.devops.weebify.tv/weebify"
+            - name: AUTH_JWT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: weebify-secrets
+                  key: auth-jwt-key
+            - name: SEARCH_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: weebify-secrets
+                  key: meilisearch-master-key
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: weebify
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP

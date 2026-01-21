@@ -1,0 +1,131 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-pvc
+  namespace: weebify
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo
+  namespace: weebify
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:8.0
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: "admin"
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              value: "admin"
+          volumeMounts:
+            - name: mongo-data
+              mountPath: /data/db
+      volumes:
+        - name: mongo-data
+          persistentVolumeClaim:
+            claimName: mongo-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+  namespace: weebify
+spec:
+  selector:
+    app: mongo
+  ports:
+    - port: 27017
+      targetPort: 27017
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongo-init-script
+  namespace: weebify
+data:
+  init.js: |
+    // Create weebify database and initial admin user document
+    db = db.getSiblingDB("weebify");
+
+    // Insert default admin user for the app
+    db.users.insertOne({
+      _id: ObjectId(),
+      bio: "",
+      role: "GOD",
+      inviteCodes: [],
+      username: "admin",
+      displayName: "admin",
+      pfp: "default",
+      passwordHash: "$argon2i$v=19$m=16,t=2,p=1$YmZJa0VhTGszUzlHb084Qg$qj4axEDnnaHsjA/vx0LS2Q", // "admin"
+      following: [],
+      sessions: [],
+    });
+
+    print("Initialized weebify database with admin user");
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongo-init
+  namespace: weebify
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-mongo
+          image: mongo:8.0
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until mongosh --host mongo --username admin --password admin --eval "db.adminCommand('ping')"; do
+                echo "Waiting for MongoDB..."
+                sleep 2
+              done
+      containers:
+        - name: mongo-init
+          image: mongo:8.0
+          command:
+            - mongosh
+            - --host
+            - mongo
+            - --username
+            - admin
+            - --password
+            - admin
+            - --authenticationDatabase
+            - admin
+            - /scripts/init.js
+          volumeMounts:
+            - name: init-script
+              mountPath: /scripts
+      volumes:
+        - name: init-script
+          configMap:
+            name: mongo-init-script

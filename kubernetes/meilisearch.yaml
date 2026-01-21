@@ -1,0 +1,70 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: meilisearch-pvc
+  namespace: weebify
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: meilisearch
+  namespace: weebify
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: meilisearch
+  template:
+    metadata:
+      labels:
+        app: meilisearch
+    spec:
+      containers:
+        - name: meilisearch
+          image: getmeili/meilisearch:v1.12
+          ports:
+            - containerPort: 7700
+          env:
+            - name: MEILI_ENV
+              value: "production"
+            - name: MEILI_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: weebify-secrets
+                  key: meilisearch-master-key
+          volumeMounts:
+            - name: meili-data
+              mountPath: /meili_data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+      volumes:
+        - name: meili-data
+          persistentVolumeClaim:
+            claimName: meilisearch-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: meilisearch
+  namespace: weebify
+spec:
+  selector:
+    app: meilisearch
+  ports:
+    - port: 7700
+      targetPort: 7700
+  type: ClusterIP

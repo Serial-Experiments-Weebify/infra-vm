@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: weebify-fe-svc
+  namespace: weebify
+
+spec:
+  selector:
+    name: weebify-fe
+    app: weebify
+    color: blue
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  type: ClusterIP
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name:  weebify-fe-blue
+  namespace: weebify
+  labels:
+    app:  weebify
+    name:  weebify-fe
+    color: blue
+
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      name: weebify-fe
+      app: weebify
+      color: blue
+
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+
+  template:
+    metadata:
+      labels:
+        name:  weebify-fe
+        app:  weebify
+        color: blue
+
+    spec:
+      containers:
+      - name:  weebify-fe
+        image: ghcr.io/serial-experiments-weebify/weebify-frontend:devops-75b89ce
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "64M"
+          limits:
+            cpu: "1"
+            memory: "512M"
+
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          timeoutSeconds: 2
+
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          timeoutSeconds: 2
+
+        ports:
+        - containerPort: 80
+          protocol: TCP
+          name:  http
+
+        imagePullPolicy: IfNotPresent
+
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 15

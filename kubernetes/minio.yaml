@@ -1,0 +1,53 @@
+apiVersion: minio.min.io/v2
+kind: Tenant
+metadata:
+  namespace: weebify
+  name: minio
+spec:
+  configuration:
+    name: minio-creds
+  exposeServices:
+    minio: true
+  pools:
+    - name: weebpool
+      servers: 1
+      volumesPerServer: 1
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+  mountPath: /data
+  requestAutoCert: false
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-setup
+  namespace: weebify
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mc
+          image: minio/mc:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until mc alias set s3 http://minio-hl:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" ; do
+                echo "Waiting for MinIO..."
+                sleep 5
+              done
+              sleep 15
+              echo $MINIO_ROOT_USER
+              echo $MINIO_ROOT_PASSWORD
+              mc mb --ignore-existing s3/weebify
+              mc anonymous set download s3/weebify
+          envFrom:
+            - secretRef:
+                name: minio-creds2

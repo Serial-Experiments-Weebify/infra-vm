@@ -10,3 +10,4 @@ This repositority contains IaC files for deploying Weebify in different configur
 
 - [Virtualization (multipass or vagrant with libvirt)](./vm/readme.md)
 - [Docker compose](./docker/readme.md)
+- [Kubernetes](./kubernetes/readme.md)

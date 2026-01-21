@@ -1,0 +1,168 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: weebify-fe-ingress
+  namespace: weebify
+  annotations:
+    traefik.ingress.kubernetes.io/router.tls.certresolver: default
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.priority: "1"
+
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: devops.weebify.tv
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: weebify-fe-svc
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - devops.weebify.tv
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: meilisearch-stripprefix
+  namespace: weebify
+spec:
+  stripPrefix:
+    prefixes:
+      - /api/search
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: meilisearch-ingress
+  namespace: weebify
+  annotations:
+    traefik.ingress.kubernetes.io/router.tls.certresolver: default
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: weebify-meilisearch-stripprefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.priority: "10"
+
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: devops.weebify.tv
+      http:
+        paths:
+          - path: /api/search
+            pathType: Prefix
+            backend:
+              service:
+                name: meilisearch
+                port:
+                  number: 7700
+  tls:
+    - hosts:
+        - devops.weebify.tv
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: backend-ingress
+  namespace: weebify
+  annotations:
+    traefik.ingress.kubernetes.io/router.tls.certresolver: default
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.priority: "10"
+
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: devops.weebify.tv
+      http:
+        paths:
+          - path: /graphql
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 3000
+  tls:
+    - hosts:
+        - devops.weebify.tv
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: media-stripprefix
+  namespace: weebify
+spec:
+  stripPrefix:
+    prefixes:
+      - /api
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: media-ingress
+  namespace: weebify
+  annotations:
+    traefik.ingress.kubernetes.io/router.tls.certresolver: default
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: weebify-media-stripprefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.priority: "10"
+
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: devops.weebify.tv
+      http:
+        paths:
+          - path: /api/media
+            pathType: Prefix
+            backend:
+              service:
+                name: media
+                port:
+                  number: 3001
+  tls:
+    - hosts:
+        - devops.weebify.tv
+
+--- 
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: weebify-minio-ingress
+  namespace: weebify
+  annotations:
+    traefik.ingress.kubernetes.io/router.tls.certresolver: default
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.priority: "1"
+
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: s3.devops.weebify.tv
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: minio-hl
+                port:
+                  number: 9000
+  tls:
+    - hosts:
+        - s3.devops.weebify.tv
